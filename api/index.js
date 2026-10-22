@@ -22,6 +22,26 @@ export default async function handler(req, res) {
     const height = url.searchParams.get('h') || '36';
     const rx = url.searchParams.get('rx') || '6';
 
+    // Числовые значения для расчётов масштабирования
+    const wNum = parseFloat(width) || 120;
+    const hNum = parseFloat(height) || 36;
+    
+    // Ручной коэффициент масштабирования (поддерживает дробные, например scale=3.4)
+    const scale = parseFloat(url.searchParams.get('scale')) || 1;
+
+    // Логика динамического масштабирования:
+    // Базовый размер привязан к высоте h (стандартная высота 36px давала шрифты 13 и 14)
+    const heightRatio = hNum / 36;
+    const totalScale = heightRatio * scale;
+
+    const imdbFontSize = 13 * totalScale;
+    const ratingFontSize = 14 * totalScale;
+
+    // Пропорциональные координаты по горизонтали для корре позиционирования при любом w
+    const imdbXPos = wNum * 0.27;
+    const ratingXPos = wNum - (25 * (wNum / 120));
+    const centerYOffset = 4 * totalScale;
+
     let rating = 'N/A';
 
     // Получаем рейтинг с IMDb
@@ -60,12 +80,12 @@ export default async function handler(req, res) {
       console.error('GraphQL rating fetch failed:', e);
     }
 
-    // SVG баннер
+    // SVG баннер с динамическими размерами
     const svg = `
-      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+      <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        <text x="32" y="${(height / 2) + 4}" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
-        <text x="${Number(width) - 25}" y="${(height / 2) + 4}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
+        <text x="${imdbXPos}" y="${(hNum / 2) + centerYOffset}" font-family="Arial, Helvetica, sans-serif" font-size="${imdbFontSize}" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
+        <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="Arial, Helvetica, sans-serif" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();
 

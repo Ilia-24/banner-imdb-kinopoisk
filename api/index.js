@@ -1,10 +1,19 @@
 export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const id = url.searchParams.get('id');
-    const cleanId = id ? id.replace('.png', '') : 'tt0111161';
+    
+    // Получаем ID из query-параметра или из пути (/tt0120689.png)
+    let rawId = url.searchParams.get('id');
+    if (!rawId) {
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (pathParts.length > 0) {
+        rawId = pathParts[0];
+      }
+    }
 
-    // Настройки цветов и размеров из URL
+    const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
+
+    // Цвета и размеры
     const bgColor = '#' + (url.searchParams.get('bg') || '121212');
     const imdbTextColor = '#' + (url.searchParams.get('imdb_text') || 'f5c518');
     const ratingTextColor = '#' + (url.searchParams.get('text') || 'ffffff');
@@ -51,16 +60,11 @@ export default async function handler(req, res) {
       console.error('GraphQL rating fetch failed:', e);
     }
 
-    // SVG с чётким шрифтом и раздвинутыми буквами
+    // SVG баннер
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-        <!-- Фон баннера -->
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        
-        <!-- Четкая надпись IMDb -->
         <text x="32" y="${(height / 2) + 4}" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
-        
-        <!-- Число рейтинга -->
         <text x="${Number(width) - 25}" y="${(height / 2) + 4}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();

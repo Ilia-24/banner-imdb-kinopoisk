@@ -13,10 +13,14 @@ export default async function handler(req, res) {
 
     const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
 
-    // Цвета и размеры
+    // Цвета, шрифты и размеры
     const bgColor = '#' + (url.searchParams.get('bg') || '121212');
     const imdbTextColor = '#' + (url.searchParams.get('imdb_text') || 'f5c518');
     const ratingTextColor = '#' + (url.searchParams.get('text') || 'ffffff');
+    
+    // Получаем параметр font, декодируем %20, а если не передан — используем дефолтный
+    const rawFont = url.searchParams.get('font');
+    const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
 
     const width = url.searchParams.get('w') || '120';
     const height = url.searchParams.get('h') || '36';
@@ -80,12 +84,12 @@ export default async function handler(req, res) {
       console.error('GraphQL rating fetch failed:', e);
     }
 
-    // SVG баннер с динамическими размерами
+    // SVG баннер с динамическими размерами и пользовательским шрифтом
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        <text x="${imdbXPos}" y="${(hNum / 2) + centerYOffset}" font-family="Arial, Helvetica, sans-serif" font-size="${imdbFontSize}" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
-        <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="Arial, Helvetica, sans-serif" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
+        <text x="${imdbXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${imdbFontSize}" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
+        <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();
 

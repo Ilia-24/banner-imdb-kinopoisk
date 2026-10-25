@@ -127,9 +127,11 @@ export default async function handler(req, res) {
 
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
-    res.status(200).send(svg);
+    res.statusCode = 200;
+    res.end(svg);
   } catch (error) {
     console.error('API Error:', error);
-    res.status(500).send('Error generating banner: ' + error.message);
+    res.statusCode = 500;
+    res.end('Error generating banner: ' + error.message);
   }
 }

@@ -2,53 +2,62 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     
-    // Получаем ID из query-параметра или из пути (/tt0120689.png)
+    const pathParts = url.pathname.split('/').filter(Boolean);
     let rawId = url.searchParams.get('id');
-    if (!rawId) {
-      const pathParts = url.pathname.split('/').filter(Boolean);
-      if (pathParts.length > 0) {
+    let pathParams = {};
+
+    if (pathParts.length > 0) {
+      if (!rawId) {
         rawId = pathParts[0];
+      }
+      for (let i = 1; i < pathParts.length; i++) {
+        let part = pathParts[i].replace('.png', '');
+        const dashIdx = part.indexOf('-');
+        if (dashIdx !== -1) {
+          const key = part.substring(0, dashIdx);
+          const val = part.substring(dashIdx + 1);
+          pathParams[key] = val;
+        }
       }
     }
 
     const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
 
+    // Функция для получения параметра: из query (?bg=...), либо из пути (/bg-...)
+    const getParam = (key, defaultVal, altKey = null) => {
+      return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
+    };
+
     // Цвета, шрифты и размеры
-    const bgColor = '#' + (url.searchParams.get('bg') || '121212');
-    const imdbTextColor = '#' + (url.searchParams.get('imdb_text') || 'f5c518');
-    const ratingTextColor = '#' + (url.searchParams.get('text') || 'ffffff');
+    const bgColor = '#' + getParam('bg', '121212');
+    const imdbTextColor = '#' + getParam('imdb_text', 'f5c518', 'imdb-text');
+    const ratingTextColor = '#' + getParam('text', 'ffffff');
     
-    // Получаем параметр font, декодируем %20, а если не передан — используем дефолтный
-    const rawFont = url.searchParams.get('font');
+    const rawFont = getParam('font', null);
     const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
 
-    const width = url.searchParams.get('w') || '120';
-    const height = url.searchParams.get('h') || '36';
-    const rx = url.searchParams.get('rx') || '6';
+    const width = getParam('w', '120');
+    const height = getParam('h', '36');
+    const rx = getParam('rx', '6');
 
     // Числовые значения для расчётов масштабирования
     const wNum = parseFloat(width) || 120;
     const hNum = parseFloat(height) || 36;
     
-    // Ручной коэффициент масштабирования (поддерживает дробные, например scale=3.4)
-    const scale = parseFloat(url.searchParams.get('scale')) || 1;
+    const scale = parseFloat(getParam('scale', '1')) || 1;
 
-    // Логика динамического масштабирования:
-    // Базовый размер привязан к высоте h (стандартная высота 36px давала шрифты 13 и 14)
     const heightRatio = hNum / 36;
     const totalScale = heightRatio * scale;
 
     const imdbFontSize = 13 * totalScale;
     const ratingFontSize = 14 * totalScale;
 
-    // Пропорциональные координаты по горизонтали для корре позиционирования при любом w
     const imdbXPos = wNum * 0.27;
     const ratingXPos = wNum - (25 * (wNum / 120));
     const centerYOffset = 4 * totalScale;
 
     let rating = 'N/A';
 
-    // Получаем рейтинг с IMDb
     try {
       const gqlResponse = await fetch('https://api.graphql.imdb.com/', {
         method: 'POST',
@@ -84,7 +93,6 @@ export default async function handler(req, res) {
       console.error('GraphQL rating fetch failed:', e);
     }
 
-    // SVG баннер с динамическими размерами и пользовательским шрифтом
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>

@@ -1,6 +1,10 @@
 {
   "name": "imdb-banner",
   "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "micro api/index.js"
+  },
   "dependencies": {
     "micro": "^10.0.1"
   }

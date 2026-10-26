@@ -37,7 +37,6 @@ export default async function handler(req, res) {
     const rawFont = getParam('font', null);
     const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
 
-    // Новые дефолтные размеры: чуть уже (110) и чуть выше (40)
     const width = getParam('w', '110');
     const height = getParam('h', '40');
     const rx = getParam('rx', '6');
@@ -47,18 +46,21 @@ export default async function handler(req, res) {
     
     const scale = parseFloat(getParam('scale', '1')) || 1;
 
-    const heightRatio = hNum / 36;
+    const heightRatio = hNum / 40;
     const totalScale = heightRatio * scale;
 
-    const brandFontSize = (isKinopoisk ? 10.5 : 13) * totalScale;
+    // Сделали шрифт чуть компактнее (9.5 вместо 10.5 для Кинопоиска)
+    const brandFontSize = (isKinopoisk ? 9.5 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
     const brandFontFamily = isKinopoisk ? 'sans-serif' : font;
-    const brandXPos = isKinopoisk ? (10 * totalScale) : (wNum * 0.27);
+    // Сдвинули чуть влево, оставив комфортный отступ от края (8px)
+    const brandXPos = isKinopoisk ? (8 * totalScale) : (wNum * 0.27);
     const brandTextAnchor = isKinopoisk ? 'start' : 'middle';
-    const brandLetterSpacing = isKinopoisk ? '-0.3' : '1.5';
+    // Еще сильнее сжали буквы, чтобы слово гарантированно не задевало рейтинг
+    const brandLetterSpacing = isKinopoisk ? '-0.5' : '1.5';
 
-    const ratingXPos = wNum - (25 * (wNum / 120));
+    const ratingXPos = wNum - (25 * (wNum / 110));
     const centerYOffset = 4 * totalScale;
 
     let rating = '—';

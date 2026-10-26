@@ -37,12 +37,13 @@ export default async function handler(req, res) {
     const rawFont = getParam('font', null);
     const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
 
-    const width = getParam('w', '120');
-    const height = getParam('h', '36');
+    // Новые дефолтные размеры: чуть уже (110) и чуть выше (40)
+    const width = getParam('w', '110');
+    const height = getParam('h', '40');
     const rx = getParam('rx', '6');
 
-    const wNum = parseFloat(width) || 120;
-    const hNum = parseFloat(height) || 36;
+    const wNum = parseFloat(width) || 110;
+    const hNum = parseFloat(height) || 40;
     
     const scale = parseFloat(getParam('scale', '1')) || 1;
 
@@ -64,7 +65,6 @@ export default async function handler(req, res) {
 
     if (isKinopoisk) {
       try {
-        // 1. Основной запрос через официальный XML-сервис Кинопоиска (без ключей и лимитов)
         const xmlRes = await fetch(`https://rating.kinopoisk.ru/${cleanId}.xml`, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         });
@@ -80,7 +80,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // 2. Запасной вариант через API, если XML не вернул рейтинг
         if (rating === '—') {
           const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
             headers: {

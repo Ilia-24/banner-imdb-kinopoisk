@@ -23,10 +23,8 @@ export default async function handler(req, res) {
 
     const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
     
-    // Определяем, Кинопоиск это или IMDb (Кинопоиск — только цифры)
     const isKinopoisk = /^\d+$/.test(cleanId);
 
-    // Функция для получения параметра: из query (?bg=...), либо из пути (/bg-...)
     const getParam = (key, defaultVal, altKey = null) => {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
@@ -51,14 +49,14 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 36;
     const totalScale = heightRatio * scale;
 
-    const brandFontSize = (isKinopoisk ? 12 : 13) * totalScale;
+    // Уменьшаем размер и делаем шрифт компактным для Кинопоиска
+    const brandFontSize = (isKinopoisk ? 10.5 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
-    // Для Кинопоиска используем узкий шрифт и отступ слева, для IMDb оставляем как было
-    const brandFontFamily = isKinopoisk ? 'Arial Narrow, ' + font : font;
-    const brandXPos = isKinopoisk ? (11 * totalScale) : (wNum * 0.27);
+    const brandFontFamily = isKinopoisk ? 'sans-serif' : font;
+    const brandXPos = isKinopoisk ? (10 * totalScale) : (wNum * 0.27);
     const brandTextAnchor = isKinopoisk ? 'start' : 'middle';
-    const brandLetterSpacing = isKinopoisk ? '0.2' : '1.5';
+    const brandLetterSpacing = isKinopoisk ? '-0.3' : '1.5';
 
     const ratingXPos = wNum - (25 * (wNum / 120));
     const centerYOffset = 4 * totalScale;
@@ -76,8 +74,9 @@ export default async function handler(req, res) {
 
         if (kpResponse.ok) {
           const kpData = await kpResponse.json();
-          const kpRating = kpData.ratingKinopoisk || kpData.ratingKp || kpData.ratingImdb;
-          if (kpRating && !isNaN(parseFloat(kpRating)) && parseFloat(kpRating) > 0) {
+          // Проверяем все возможные варианты полей рейтинга в ответе API
+          const kpRating = kpData.ratingKinopoisk || kpData.rating || kpData.ratingKp || kpData.ratingImdb;
+          if (kpRating !== null && kpRating !== undefined && !isNaN(parseFloat(kpRating)) && parseFloat(kpRating) > 0) {
             rating = parseFloat(kpRating).toFixed(1);
           }
         } else {

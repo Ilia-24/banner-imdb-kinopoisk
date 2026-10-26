@@ -31,7 +31,6 @@ export default async function handler(req, res) {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    // Цвета, шрифты и размеры (для Кинопоиска дефолтный цвет текста бренда сделаем оранжевым/красным или кастомным)
     const bgColor = '#' + getParam('bg', '121212');
     const defaultBrandColor = isKinopoisk ? 'ff6600' : 'f5c518';
     const brandTextColor = '#' + getParam('brand_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
@@ -44,7 +43,6 @@ export default async function handler(req, res) {
     const height = getParam('h', '36');
     const rx = getParam('rx', '6');
 
-    // Числовые значения для расчётов масштабирования
     const wNum = parseFloat(width) || 120;
     const hNum = parseFloat(height) || 36;
     
@@ -53,11 +51,15 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 36;
     const totalScale = heightRatio * scale;
 
-    const brandFontSize = (isKinopoisk ? 11 : 13) * totalScale;
+    const brandFontSize = (isKinopoisk ? 12 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
-    // Позиционирование текста бренда (для Кинопоиска слово длиннее, сдвигаем чуть левее)
-    const brandXPos = wNum * (isKinopoisk ? 0.32 : 0.27);
+    // Для Кинопоиска используем узкий шрифт и отступ слева, для IMDb оставляем как было
+    const brandFontFamily = isKinopoisk ? 'Arial Narrow, ' + font : font;
+    const brandXPos = isKinopoisk ? (11 * totalScale) : (wNum * 0.27);
+    const brandTextAnchor = isKinopoisk ? 'start' : 'middle';
+    const brandLetterSpacing = isKinopoisk ? '0.2' : '1.5';
+
     const ratingXPos = wNum - (25 * (wNum / 120));
     const centerYOffset = 4 * totalScale;
 
@@ -65,20 +67,21 @@ export default async function handler(req, res) {
 
     if (isKinopoisk) {
       try {
-        // Запрос к публичному API Кинопоиска (или мобильного клиента)
         const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
           headers: {
-            'X-API-KEY': 'e30ed3d7-d75d-4f39-a68b-59751e180d50', // Публичный тестовый ключ / можно заменить
-            'Content-Type': 'application/json',
+            'X-API-KEY': 'e30ed3d7-d75d-4f39-a68b-59751e180d50',
+            'Accept': 'application/json',
           }
         });
 
         if (kpResponse.ok) {
           const kpData = await kpResponse.json();
-          const kpRating = kpData.ratingKinopoisk || kpData.ratingImdb;
-          if (kpRating && kpRating > 0) {
-            rating = kpRating.toFixed(1);
+          const kpRating = kpData.ratingKinopoisk || kpData.ratingKp || kpData.ratingImdb;
+          if (kpRating && !isNaN(parseFloat(kpRating)) && parseFloat(kpRating) > 0) {
+            rating = parseFloat(kpRating).toFixed(1);
           }
+        } else {
+          console.error(`Kinopoisk API returned status ${kpResponse.status} for ID ${cleanId}`);
         }
       } catch (e) {
         console.error('Kinopoisk rating fetch failed:', e);
@@ -125,7 +128,7 @@ export default async function handler(req, res) {
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${brandFontSize}" font-weight="900" letter-spacing="1" fill="${brandTextColor}" text-anchor="middle">${brandName}</text>
+        <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${brandFontFamily}" font-size="${brandFontSize}" font-weight="900" letter-spacing="${brandLetterSpacing}" fill="${brandTextColor}" text-anchor="${brandTextAnchor}">${brandName}</text>
         <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();

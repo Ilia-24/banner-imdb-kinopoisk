@@ -1,6 +1,9 @@
 {
-  "name": "imdb-banner",
+  "name": "banner-imdb-kinopoisk",
   "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "micro": "^10.0.1"
   }

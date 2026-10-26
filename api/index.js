@@ -22,13 +22,19 @@ export default async function handler(req, res) {
     }
 
     const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
+    
+    // Определяем, Кинопоиск это или IMDb (Кинопоиск — только цифры)
+    const isKinopoisk = /^\d+$/.test(cleanId);
 
+    // Функция для получения параметра: из query (?bg=...), либо из пути (/bg-...)
     const getParam = (key, defaultVal, altKey = null) => {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
+    // Цвета, шрифты и размеры (для Кинопоиска дефолтный цвет текста бренда сделаем оранжевым/красным или кастомным)
     const bgColor = '#' + getParam('bg', '121212');
-    const imdbTextColor = '#' + getParam('imdb_text', 'f5c518', 'imdb-text');
+    const defaultBrandColor = isKinopoisk ? 'ff6600' : 'f5c518';
+    const brandTextColor = '#' + getParam('brand_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
     const ratingTextColor = '#' + getParam('text', 'ffffff');
     
     const rawFont = getParam('font', null);
@@ -38,6 +44,7 @@ export default async function handler(req, res) {
     const height = getParam('h', '36');
     const rx = getParam('rx', '6');
 
+    // Числовые значения для расчётов масштабирования
     const wNum = parseFloat(width) || 120;
     const hNum = parseFloat(height) || 36;
     
@@ -46,54 +53,79 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 36;
     const totalScale = heightRatio * scale;
 
-    const imdbFontSize = 13 * totalScale;
+    const brandFontSize = (isKinopoisk ? 11 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
-    const imdbXPos = wNum * 0.27;
+    // Позиционирование текста бренда (для Кинопоиска слово длиннее, сдвигаем чуть левее)
+    const brandXPos = wNum * (isKinopoisk ? 0.32 : 0.27);
     const ratingXPos = wNum - (25 * (wNum / 120));
     const centerYOffset = 4 * totalScale;
 
-    let rating = 'N/A';
+    let rating = '—';
 
-    try {
-      const gqlResponse = await fetch('https://api.graphql.imdb.com/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'x-imdb-client-name': 'imdb-web-next',
-          'x-imdb-user-country': 'US'
-        },
-        body: JSON.stringify({
-          query: `
-            query GetTitle($id: ID!) {
-              title(id: $id) {
-                ratingsSummary {
-                  aggregateRating
+    if (isKinopoisk) {
+      try {
+        // Запрос к публичному API Кинопоиска (или мобильного клиента)
+        const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
+          headers: {
+            'X-API-KEY': 'e30ed3d7-d75d-4f39-a68b-59751e180d50', // Публичный тестовый ключ / можно заменить
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (kpResponse.ok) {
+          const kpData = await kpResponse.json();
+          const kpRating = kpData.ratingKinopoisk || kpData.ratingImdb;
+          if (kpRating && kpRating > 0) {
+            rating = kpRating.toFixed(1);
+          }
+        }
+      } catch (e) {
+        console.error('Kinopoisk rating fetch failed:', e);
+      }
+    } else {
+      try {
+        const gqlResponse = await fetch('https://api.graphql.imdb.com/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'x-imdb-client-name': 'imdb-web-next',
+            'x-imdb-user-country': 'US'
+          },
+          body: JSON.stringify({
+            query: `
+              query GetTitle($id: ID!) {
+                title(id: $id) {
+                  ratingsSummary {
+                    aggregateRating
+                  }
                 }
               }
-            }
-          `,
-          variables: { id: cleanId }
-        })
-      });
+            `,
+            variables: { id: cleanId }
+          })
+        });
 
-      if (gqlResponse.ok) {
-        const gqlData = await gqlResponse.json();
-        const aggregateRating = gqlData?.data?.title?.ratingsSummary?.aggregateRating;
-        if (aggregateRating) {
-          rating = aggregateRating.toFixed(1);
+        if (gqlResponse.ok) {
+          const gqlData = await gqlResponse.json();
+          const aggregateRating = gqlData?.data?.title?.ratingsSummary?.aggregateRating;
+          if (aggregateRating) {
+            rating = aggregateRating.toFixed(1);
+          }
         }
+      } catch (e) {
+        console.error('GraphQL rating fetch failed:', e);
       }
-    } catch (e) {
-      console.error('GraphQL rating fetch failed:', e);
     }
+
+    const brandName = isKinopoisk ? 'Кинопоиск' : 'IMDb';
 
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        <text x="${imdbXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${imdbFontSize}" font-weight="900" letter-spacing="1.5" fill="${imdbTextColor}" text-anchor="middle">IMDb</text>
+        <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${brandFontSize}" font-weight="900" letter-spacing="1" fill="${brandTextColor}" text-anchor="middle">${brandName}</text>
         <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();

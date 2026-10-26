@@ -2,12 +2,7 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     
-    // Получаем чистый путь без параметров запроса
-    const pathname = url.pathname;
-    
-    // Разбиваем путь на части по слэшу
-    const pathParts = pathname.split('/').filter(Boolean);
-    
+    const pathParts = url.pathname.split('/').filter(Boolean);
     let rawId = url.searchParams.get('id');
     let pathParams = {};
 
@@ -16,7 +11,7 @@ export default async function handler(req, res) {
         rawId = pathParts[0];
       }
       for (let i = 1; i < pathParts.length; i++) {
-        let part = pathParts[i].replace(/\.png$/i, '');
+        let part = pathParts[i].replace('.png', '');
         const dashIdx = part.indexOf('-');
         if (dashIdx !== -1) {
           const key = part.substring(0, dashIdx);
@@ -26,18 +21,19 @@ export default async function handler(req, res) {
       }
     }
 
-    const cleanId = rawId ? rawId.replace(/\.png$/i, '').replace(/\//g, '') : 'tt0111161';
+    const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
 
-    // Функция для получения параметра из query (?bg=...) или из пути (/bg-...)
+    // Функция для получения параметра: из query (?bg=...), либо из пути (/bg-...)
     const getParam = (key, defaultVal, altKey = null) => {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    // Определение источника: если начинается с 'tt' — IMDb, иначе — Кинопоиск
+    // Определяем, IMDb это или Кинопоиск (если ID начинается с tt — IMDb, иначе Кинопоиск)
     const isImdb = cleanId.startsWith('tt');
 
+    // Цвета, шрифты и размеры
     const bgColor = '#' + getParam('bg', '121212');
-    const defaultBrandColor = isImdb ? 'f5c518' : 'f36c00'; // Жёлтый для IMDb, оранжевый для Кинопоиска
+    const defaultBrandColor = isImdb ? 'f5c518' : 'f36c00';
     const brandTextColor = '#' + getParam(isImdb ? 'imdb_text' : 'kp_text', defaultBrandColor, isImdb ? 'imdb-text' : 'kp-text');
     const ratingTextColor = '#' + getParam('text', 'ffffff');
     
@@ -48,6 +44,7 @@ export default async function handler(req, res) {
     const height = getParam('h', '36');
     const rx = getParam('rx', '6');
 
+    // Числовые значения для расчётов масштабирования
     const wNum = parseFloat(width) || 120;
     const hNum = parseFloat(height) || 36;
     
@@ -59,21 +56,24 @@ export default async function handler(req, res) {
     const brandFontSize = 13 * totalScale;
     const ratingFontSize = 14 * totalScale;
 
-    const brandXPos = wNum * 0.27;
+    const brandName = isImdb ? 'IMDb' : 'Кинопоиск';
+    // Для более длинного слова "Кинопоиск" чуть уменьшаем шрифт и подгоняем позицию
+    const actualBrandFontSize = !isImdb ? brandFontSize * 0.72 : brandFontSize;
+
+    const brandXPos = isImdb ? wNum * 0.27 : wNum * 0.32;
     const ratingXPos = wNum - (25 * (wNum / 120));
     const centerYOffset = 4 * totalScale;
 
-    let rating = '-'; // Прочерк по умолчанию, если рейтинг не найден
-    const brandName = isImdb ? 'IMDb' : 'Кинопоиск';
+    let rating = 'N/A';
 
     try {
       if (isImdb) {
-        // Запрос к IMDb
+        // Запрос для IMDb
         const gqlResponse = await fetch('https://api.graphql.imdb.com/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'application/json',
             'x-imdb-client-name': 'imdb-web-next',
             'x-imdb-user-country': 'US'
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
           }
         }
       } else {
-        // Запрос к Кинопоиску
+        // Запрос для Кинопоиска
         const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
           headers: {
             'X-API-KEY': 'e30ef708-7757-4180-9971-d602166e5124',
@@ -119,9 +119,6 @@ export default async function handler(req, res) {
       console.error('Rating fetch failed:', e);
     }
 
-    // Уменьшаем шрифт для более длинного слова "Кинопоиск"
-    const actualBrandFontSize = !isImdb ? brandFontSize * 0.75 : brandFontSize;
-
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
@@ -132,11 +129,9 @@ export default async function handler(req, res) {
 
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
-    res.statusCode = 200;
-    res.end(svg);
+    res.status(200).send(svg);
   } catch (error) {
     console.error('API Error:', error);
-    res.statusCode = 500;
-    res.end('Error generating banner: ' + error.message);
+    res.status(500).send('Error generating banner: ' + error.message);
   }
 }

@@ -49,7 +49,6 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 36;
     const totalScale = heightRatio * scale;
 
-    // Уменьшаем размер и делаем шрифт компактным для Кинопоиска
     const brandFontSize = (isKinopoisk ? 10.5 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
@@ -65,22 +64,39 @@ export default async function handler(req, res) {
 
     if (isKinopoisk) {
       try {
-        const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
-          headers: {
-            'X-API-KEY': 'e30ed3d7-d75d-4f39-a68b-59751e180d50',
-            'Accept': 'application/json',
-          }
+        // 1. Основной запрос через официальный XML-сервис Кинопоиска (без ключей и лимитов)
+        const xmlRes = await fetch(`https://rating.kinopoisk.ru/${cleanId}.xml`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         });
-
-        if (kpResponse.ok) {
-          const kpData = await kpResponse.json();
-          // Проверяем все возможные варианты полей рейтинга в ответе API
-          const kpRating = kpData.ratingKinopoisk || kpData.rating || kpData.ratingKp || kpData.ratingImdb;
-          if (kpRating !== null && kpRating !== undefined && !isNaN(parseFloat(kpRating)) && parseFloat(kpRating) > 0) {
-            rating = parseFloat(kpRating).toFixed(1);
+        
+        if (xmlRes.ok) {
+          const xmlText = await xmlRes.text();
+          const match = xmlText.match(/<kp_rating[^>]*>([\d.]+)<\/kp_rating>/i) || xmlText.match(/<rating[^>]*>([\d.]+)<\/rating>/i);
+          if (match && match[1]) {
+            const val = parseFloat(match[1]);
+            if (val > 0) {
+              rating = val.toFixed(1);
+            }
           }
-        } else {
-          console.error(`Kinopoisk API returned status ${kpResponse.status} for ID ${cleanId}`);
+        }
+
+        // 2. Запасной вариант через API, если XML не вернул рейтинг
+        if (rating === '—') {
+          const kpResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${cleanId}`, {
+            headers: {
+              'X-API-KEY': 'e30ed3d7-d75d-4f39-a68b-59751e180d50',
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0'
+            }
+          });
+
+          if (kpResponse.ok) {
+            const kpData = await kpResponse.json();
+            const kpRating = kpData.ratingKinopoisk || kpData.rating || kpData.ratingKp || kpData.ratingImdb;
+            if (kpRating !== null && kpRating !== undefined && !isNaN(parseFloat(kpRating)) && parseFloat(kpRating) > 0) {
+              rating = parseFloat(kpRating).toFixed(1);
+            }
+          }
         }
       } catch (e) {
         console.error('Kinopoisk rating fetch failed:', e);

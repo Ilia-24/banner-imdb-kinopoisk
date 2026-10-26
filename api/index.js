@@ -49,14 +49,15 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 40;
     const totalScale = heightRatio * scale;
 
-    // Сбалансированный размер (11px) и аккуратный отступ (10px)
-    const brandFontSize = (isKinopoisk ? 11 : 13) * totalScale;
+    // Сделали шрифт чуть тоньше (10.5) и снизили толщину букв, чтобы они не были жирными
+    const brandFontSize = (isKinopoisk ? 10.5 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
     const brandFontFamily = isKinopoisk ? 'sans-serif' : font;
+    const brandFontWeight = isKinopoisk ? '700' : '900';
     const brandXPos = isKinopoisk ? (10 * totalScale) : (wNum * 0.27);
     const brandTextAnchor = isKinopoisk ? 'start' : 'middle';
-    const brandLetterSpacing = isKinopoisk ? '-0.2' : '1.5';
+    const brandLetterSpacing = isKinopoisk ? '-0.3' : '1.5';
 
     const ratingXPos = wNum - (25 * (wNum / 110));
     const centerYOffset = 4 * totalScale;
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
-        <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${brandFontFamily}" font-size="${brandFontSize}" font-weight="900" letter-spacing="${brandLetterSpacing}" fill="${brandTextColor}" text-anchor="${brandTextAnchor}">${brandName}</text>
+        <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${brandFontFamily}" font-size="${brandFontSize}" font-weight="${brandFontWeight}" letter-spacing="${brandLetterSpacing}" fill="${brandTextColor}" text-anchor="${brandTextAnchor}">${brandName}</text>
         <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
       </svg>
     `.trim();

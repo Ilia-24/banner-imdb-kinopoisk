@@ -2,7 +2,12 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     
-    const pathParts = url.pathname.split('/').filter(Boolean);
+    // Получаем чистый путь без параметров запроса
+    const pathname = url.pathname;
+    
+    // Разбиваем путь на части по слэшу
+    const pathParts = pathname.split('/').filter(Boolean);
+    
     let rawId = url.searchParams.get('id');
     let pathParams = {};
 
@@ -11,7 +16,7 @@ export default async function handler(req, res) {
         rawId = pathParts[0];
       }
       for (let i = 1; i < pathParts.length; i++) {
-        let part = pathParts[i].replace('.png', '');
+        let part = pathParts[i].replace(/\.png$/i, '');
         const dashIdx = part.indexOf('-');
         if (dashIdx !== -1) {
           const key = part.substring(0, dashIdx);
@@ -21,7 +26,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
+    const cleanId = rawId ? rawId.replace(/\.png$/i, '').replace(/\//g, '') : 'tt0111161';
 
     // Функция для получения параметра из query (?bg=...) или из пути (/bg-...)
     const getParam = (key, defaultVal, altKey = null) => {

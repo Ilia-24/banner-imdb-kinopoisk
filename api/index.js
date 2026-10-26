@@ -23,12 +23,10 @@ export default async function handler(req, res) {
 
     const cleanId = rawId ? rawId.replace('.png', '').replace('/', '') : 'tt0111161';
 
-    // Функция для получения параметра: из query (?bg=...), либо из пути (/bg-...)
     const getParam = (key, defaultVal, altKey = null) => {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    // Цвета, шрифты и размеры
     const bgColor = '#' + getParam('bg', '121212');
     const imdbTextColor = '#' + getParam('imdb_text', 'f5c518', 'imdb-text');
     const ratingTextColor = '#' + getParam('text', 'ffffff');
@@ -40,7 +38,6 @@ export default async function handler(req, res) {
     const height = getParam('h', '36');
     const rx = getParam('rx', '6');
 
-    // Числовые значения для расчётов масштабирования
     const wNum = parseFloat(width) || 120;
     const hNum = parseFloat(height) || 36;
     

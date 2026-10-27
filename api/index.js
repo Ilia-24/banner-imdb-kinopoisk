@@ -29,34 +29,76 @@ export default async function handler(req, res) {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    // Функция для вычисления контрастного второго цвета градиента по HEX
+    // Вспомогательные функции для работы с HSL (создание красивого сочного градиента с переходом оттенка)
+    const hexToRgb = (hex) => {
+      let clean = hex.replace('#', '');
+      if (clean.length === 3) clean = clean.split('').map(c => c + c).join('');
+      const num = parseInt(clean, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    };
+
+    const rgbToHsl = (r, g, b) => {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return [h * 360, s, l];
+    };
+
+    const hslToHex = (h, s, l) => {
+      h = ((h % 360) + 360) % 360 / 360;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      const toHex = x => {
+        const hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+      return toHex(r) + toHex(g) + toHex(b);
+    };
+
+    // Функция генерации настоящего профессионального градиента
     const generateDynamicGradient = (id, hex, isBackground = true) => {
       let cleanHex = hex.replace('#', '');
-      if (cleanHex.length === 3) {
-        cleanHex = cleanHex.split('').map(c => c + c).join('');
-      }
-      const num = parseInt(cleanHex, 16);
-      if (isNaN(num)) return [`#${cleanHex}`, `#${cleanHex}`];
+      const [r, g, b] = hexToRgb(cleanHex);
+      let [h, s, l] = rgbToHsl(r, g, b);
 
-      const r = (num >> 16) & 255;
-      const g = (num >> 8) & 255;
-      const b = num & 255;
+      const isDark = l < 0.45;
 
-      // Оценка яркости (YIQ формула)
-      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-      const isDark = yiq < 128;
+      // Сдвигаем тон (hue) и светлоту (lightness) для красивого перелива
+      let targetH = h + (isDark ? 12 : -12); // небольшой сдвиг оттенка
+      let targetL = isDark ? Math.min(0.75, l + 0.22) : Math.max(0.15, l - 0.22);
+      let targetS = Math.min(1, s * 1.1); // чуть добавляем сочности
 
-      let factor = isDark ? 1.4 : 0.7;
-      if (isBackground && isDark) factor = 1.35;
+      const altHex = hslToHex(targetH, targetS, targetL);
 
-      const clamp = (val) => Math.min(255, Math.max(0, Math.round(val)));
-      const altR = clamp(r * factor);
-      const altG = clamp(g * factor);
-      const altB = clamp(b * factor);
-
-      const altHex = ((1 << 24) + (altR << 16) + (altG << 8) + altB).toString(16).slice(1);
-
-      // Направление градиента: для фона диагональ/горизонталь, для текста сверху вниз
+      // Направление градиента: для фона диагональ, для текста сверху вниз
       const coords = isBackground ? 'x1="0%" y1="0%" x2="100%" y2="100%"' : 'x1="0%" y1="0%" x2="0%" y2="100%"';
       
       return `
@@ -91,7 +133,7 @@ export default async function handler(req, res) {
       bgColor = '#' + rawBg;
     }
 
-    // Обработка текста бренда (imdb_text / kp-text)
+    // Обработка текста бренда
     const defaultBrandColor = isKinopoisk ? 'ff6600' : 'f5c518';
     const rawBrandText = getParam('imdb_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
     let brandTextColor;
@@ -105,7 +147,7 @@ export default async function handler(req, res) {
       brandTextColor = '#' + rawBrandText;
     }
     
-    // Обработка текста рейтинга (text)
+    // Обработка текста рейтинга
     const rawRatingText = getParam('text', 'ffffff');
     let ratingTextColor;
     if (rawRatingText.toLowerCase() === 'rainbow') {

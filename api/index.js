@@ -29,14 +29,94 @@ export default async function handler(req, res) {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    const rawBg = getParam('bg', '242424');
-    const bgColor = rawBg.toLowerCase() === 'rainbow' ? 'url(#rainbow)' : ('#' + rawBg);
+    // Функция для вычисления контрастного второго цвета градиента по HEX
+    const generateDynamicGradient = (id, hex, isBackground = true) => {
+      let cleanHex = hex.replace('#', '');
+      if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+      }
+      const num = parseInt(cleanHex, 16);
+      if (isNaN(num)) return [`#${cleanHex}`, `#${cleanHex}`];
 
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+
+      // Оценка яркости (YIQ формула)
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      const isDark = yiq < 128;
+
+      let factor = isDark ? 1.4 : 0.7;
+      if (isBackground && isDark) factor = 1.35;
+
+      const clamp = (val) => Math.min(255, Math.max(0, Math.round(val)));
+      const altR = clamp(r * factor);
+      const altG = clamp(g * factor);
+      const altB = clamp(b * factor);
+
+      const altHex = ((1 << 24) + (altR << 16) + (altG << 8) + altB).toString(16).slice(1);
+
+      // Направление градиента: для фона диагональ/горизонталь, для текста сверху вниз
+      const coords = isBackground ? 'x1="0%" y1="0%" x2="100%" y2="100%"' : 'x1="0%" y1="0%" x2="0%" y2="100%"';
+      
+      return `
+        <linearGradient id="${id}" ${coords}>
+          <stop offset="0%" stop-color="#${cleanHex}" />
+          <stop offset="100%" stop-color="#${altHex}" />
+        </linearGradient>
+      `;
+    };
+
+    let defsGradients = `
+      <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ff0000" />
+        <stop offset="20%" stop-color="#ff8c00" />
+        <stop offset="40%" stop-color="#ffd700" />
+        <stop offset="60%" stop-color="#008000" />
+        <stop offset="80%" stop-color="#0000ff" />
+        <stop offset="100%" stop-color="#800080" />
+      </linearGradient>
+    `;
+
+    // Обработка фона (bg)
+    const rawBg = getParam('bg', '242424');
+    let bgColor;
+    if (rawBg.toLowerCase() === 'rainbow') {
+      bgColor = 'url(#rainbow)';
+    } else if (rawBg.endsWith('-gradient')) {
+      const baseHex = rawBg.replace('-gradient', '');
+      defsGradients += generateDynamicGradient('grad-bg', baseHex, true);
+      bgColor = 'url(#grad-bg)';
+    } else {
+      bgColor = '#' + rawBg;
+    }
+
+    // Обработка текста бренда (imdb_text / kp-text)
     const defaultBrandColor = isKinopoisk ? 'ff6600' : 'f5c518';
-    const brandTextColor = '#' + getParam('imdb_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
+    const rawBrandText = getParam('imdb_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
+    let brandTextColor;
+    if (rawBrandText.toLowerCase() === 'rainbow') {
+      brandTextColor = 'url(#rainbow)';
+    } else if (rawBrandText.endsWith('-gradient')) {
+      const baseHex = rawBrandText.replace('-gradient', '');
+      defsGradients += generateDynamicGradient('grad-brand', baseHex, false);
+      brandTextColor = 'url(#grad-brand)';
+    } else {
+      brandTextColor = '#' + rawBrandText;
+    }
     
+    // Обработка текста рейтинга (text)
     const rawRatingText = getParam('text', 'ffffff');
-    const ratingTextColor = rawRatingText.toLowerCase() === 'rainbow' ? 'url(#rainbow)' : ('#' + rawRatingText);
+    let ratingTextColor;
+    if (rawRatingText.toLowerCase() === 'rainbow') {
+      ratingTextColor = 'url(#rainbow)';
+    } else if (rawRatingText.endsWith('-gradient')) {
+      const baseHex = rawRatingText.replace('-gradient', '');
+      defsGradients += generateDynamicGradient('grad-rating', baseHex, false);
+      ratingTextColor = 'url(#grad-rating)';
+    } else {
+      ratingTextColor = '#' + rawRatingText;
+    }
     
     const rawFont = getParam('font', null);
     const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
@@ -146,14 +226,7 @@ export default async function handler(req, res) {
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#ff0000" />
-            <stop offset="20%" stop-color="#ff8c00" />
-            <stop offset="40%" stop-color="#ffd700" />
-            <stop offset="60%" stop-color="#008000" />
-            <stop offset="80%" stop-color="#0000ff" />
-            <stop offset="100%" stop-color="#800080" />
-          </linearGradient>
+          ${defsGradients}
         </defs>
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
         <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${brandFontFamily}" font-size="${brandFontSize}" font-weight="${brandFontWeight}" letter-spacing="${brandLetterSpacing}" fill="${brandTextColor}" text-anchor="${brandTextAnchor}">${brandName}</text>

@@ -29,10 +29,14 @@ export default async function handler(req, res) {
       return url.searchParams.get(key) || pathParams[key] || (altKey ? pathParams[altKey] : null) || defaultVal;
     };
 
-    const bgColor = '#' + getParam('bg', '121212');
+    const rawBg = getParam('bg', '242424');
+    const bgColor = rawBg.toLowerCase() === 'rainbow' ? 'url(#rainbow)' : ('#' + rawBg);
+
     const defaultBrandColor = isKinopoisk ? 'ff6600' : 'f5c518';
-    const brandTextColor = '#' + getParam('brand_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
-    const ratingTextColor = '#' + getParam('text', 'ffffff');
+    const brandTextColor = '#' + getParam('imdb_text', defaultBrandColor, isKinopoisk ? 'kp-text' : 'imdb-text');
+    
+    const rawRatingText = getParam('text', 'ffffff');
+    const ratingTextColor = rawRatingText.toLowerCase() === 'rainbow' ? 'url(#rainbow)' : ('#' + rawRatingText);
     
     const rawFont = getParam('font', null);
     const font = rawFont ? decodeURIComponent(rawFont) : 'Arial, Helvetica, sans-serif';
@@ -49,7 +53,6 @@ export default async function handler(req, res) {
     const heightRatio = hNum / 40;
     const totalScale = heightRatio * scale;
 
-    // Сделали шрифт чуть тоньше (10.5) и снизили толщину букв, чтобы они не были жирными
     const brandFontSize = (isKinopoisk ? 10.5 : 13) * totalScale;
     const ratingFontSize = 14 * totalScale;
 
@@ -142,6 +145,16 @@ export default async function handler(req, res) {
 
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 ${wNum} ${hNum}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ff0000" />
+            <stop offset="20%" stop-color="#ff8c00" />
+            <stop offset="40%" stop-color="#ffd700" />
+            <stop offset="60%" stop-color="#008000" />
+            <stop offset="80%" stop-color="#0000ff" />
+            <stop offset="100%" stop-color="#800080" />
+          </linearGradient>
+        </defs>
         <rect width="100%" height="100%" fill="${bgColor}" rx="${rx}"/>
         <text x="${brandXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${brandFontFamily}" font-size="${brandFontSize}" font-weight="${brandFontWeight}" letter-spacing="${brandLetterSpacing}" fill="${brandTextColor}" text-anchor="${brandTextAnchor}">${brandName}</text>
         <text x="${ratingXPos}" y="${(hNum / 2) + centerYOffset}" font-family="${font}" font-size="${ratingFontSize}" font-weight="bold" fill="${ratingTextColor}" text-anchor="middle">${rating}</text>
